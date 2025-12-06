@@ -20,7 +20,7 @@ class Contract(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         default=uuid.uuid4, primary_key=True, index=True
     )
-    contract_number: Mapped[str] = mapped_column(String, nullable=False)
+    contract_number: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     components: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
