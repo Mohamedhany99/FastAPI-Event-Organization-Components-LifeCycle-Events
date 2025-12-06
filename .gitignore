@@ -1,0 +1,29 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+
+# Virtual environment (if using in-project venvs)
+.venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# SQLite database
+*.sqlite3
+*.db
+
+# pytest
+.cache/
+.pytest_cache/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# IDE / editor files
+.vscode/
+.idea/
+*.swp
