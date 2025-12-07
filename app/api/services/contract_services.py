@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
 from app.db.crud.contract import create_contract, delete_contract, get_contract
-from app.db.models.contract import Contract
+from app.db.models.models import Contract
 from app.dto.contract import ContractPayload, ContractResponse
 
 

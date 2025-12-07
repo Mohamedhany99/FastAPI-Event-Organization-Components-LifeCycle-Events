@@ -3,12 +3,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.routers import contract
-from app.db.session import create_db_and_tables
+from app.db.session import async_engine, Base
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await create_db_and_tables()
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        print("Tables created or already exist")
+
     yield
 
 

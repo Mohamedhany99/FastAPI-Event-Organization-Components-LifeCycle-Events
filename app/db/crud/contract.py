@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.contract import Contract
+from app.db.models.models import Contract
 from app.dto.contract import ContractPayload
 
 
