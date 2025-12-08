@@ -75,6 +75,123 @@ async def test_end_without_start_rejected(async_client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "component,start_type,end_type,start_date,end_date",
+    [
+        ("energy_supply", "supply_energy_start", "supply_energy_end", "2024-01-01", "2024-01-31"),
+        ("battery_optimization", "battery_optimization_start", "battery_optimization_end", "2024-03-03", "2024-04-04"),
+        ("heatpump_optimization", "heatpump_optimization_start", "heatpump_optimization_end", "2025-03-03", "2025-04-04"),
+    ],
+)
+async def test_happy_path_per_component(async_client, component, start_type, end_type, start_date, end_date):
+    contract_payload = {"contract_number": f"HAPPY-{component}", "components": [component]}
+    res = await async_client.post("/contract", json=contract_payload)
+    assert res.status_code == 201
+
+    res = await async_client.post("/event", json={
+        "type": start_type, "contract_number": f"HAPPY-{component}", "date": start_date, "created_at": iso_dt(2024, 1, 1, 9)
+    })
+    assert res.status_code == 200 and res.json()["status"] == "accepted"
+
+    res = await async_client.post("/event", json={
+        "type": end_type, "contract_number": f"HAPPY-{component}", "date": end_date, "created_at": iso_dt(2024, 12, 31, 9)
+    })
+    assert res.status_code == 200 and res.json()["status"] == "accepted"
+
+
+@pytest.mark.asyncio
+async def test_unsupported_event_type_422(async_client):
+    # Pydantic should reject unknown event type
+    payload = {
+        "type": "unknown_event",
+        "contract_number": "ANY",
+        "date": "2024-01-01",
+        "created_at": iso_dt(2024, 1, 1, 1),
+    }
+    res = await async_client.post("/event", json=payload)
+    assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_unsupported_component_for_contract_rejected(async_client):
+    # Contract has only energy_supply; battery_* event should be rejected
+    res = await async_client.post("/contract", json={
+        "contract_number": "C-UNSUPP", "components": ["energy_supply"]
+    })
+    assert res.status_code == 201
+    res = await async_client.post("/event", json={
+        "type": "battery_optimization_start",
+        "contract_number": "C-UNSUPP",
+        "date": "2024-03-03",
+        "created_at": iso_dt(2024, 3, 3, 10),
+    })
+    assert res.status_code == 200
+    assert res.json()["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_end_before_start_by_created_at_rejected(async_client):
+    res = await async_client.post("/contract", json={
+        "contract_number": "C-ORD-1", "components": ["energy_supply"]
+    })
+    assert res.status_code == 201
+    # Start at later created_at
+    res = await async_client.post("/event", json={
+        "type": "supply_energy_start", "contract_number": "C-ORD-1",
+        "date": "2024-12-01", "created_at": iso_dt(2024, 12, 10, 10),
+    })
+    assert res.json()["status"] == "accepted"
+    # End with earlier created_at → reject
+    res = await async_client.post("/event", json={
+        "type": "supply_energy_end", "contract_number": "C-ORD-1",
+        "date": "2024-12-31", "created_at": iso_dt(2024, 12, 9, 9),
+    })
+    assert res.status_code == 200 and res.json()["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_end_before_start_by_date_rejected(async_client):
+    res = await async_client.post("/contract", json={
+        "contract_number": "C-ORD-2", "components": ["energy_supply"]
+    })
+    assert res.status_code == 201
+    res = await async_client.post("/event", json={
+        "type": "supply_energy_start", "contract_number": "C-ORD-2",
+        "date": "2024-12-10", "created_at": iso_dt(2024, 12, 10, 10),
+    })
+    assert res.json()["status"] == "accepted"
+    # End date before start date; created_at later so only date rule triggers
+    res = await async_client.post("/event", json={
+        "type": "supply_energy_end", "contract_number": "C-ORD-2",
+        "date": "2024-12-01", "created_at": iso_dt(2024, 12, 11, 10),
+    })
+    assert res.status_code == 200 and res.json()["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_overwrite_newer_created_at_updates_state(async_client):
+    res = await async_client.post("/contract", json={
+        "contract_number": "C-OVR-1", "components": ["battery_optimization"]
+    })
+    assert res.status_code == 201
+    # Initial start
+    res = await async_client.post("/event", json={
+        "type": "battery_optimization_start", "contract_number": "C-OVR-1",
+        "date": "2024-03-03", "created_at": iso_dt(2024, 3, 3, 9),
+    })
+    assert res.json()["status"] == "accepted"
+    # Newer start overwrites
+    res = await async_client.post("/event", json={
+        "type": "battery_optimization_start", "contract_number": "C-OVR-1",
+        "date": "2024-03-15", "created_at": iso_dt(2024, 3, 15, 9),
+    })
+    assert res.json()["status"] == "accepted"
+    # Confirm timeline shows overwritten start
+    res = await async_client.get("/contract/C-OVR-1/contract_timeline")
+    data = res.json()
+    assert data["components"]["battery_optimization"]["start"] == "2024-03-15"
+
+@pytest.mark.asyncio
 async def test_restart_after_end_rejected(async_client):
     # Create contract
     contract_payload = {

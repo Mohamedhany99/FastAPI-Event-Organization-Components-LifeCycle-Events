@@ -3,6 +3,7 @@ from typing import Dict, Optional
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.db.crud.contract import create_contract, delete_contract, get_contract
 from app.db.models.models import Contract
@@ -16,10 +17,17 @@ async def handle_contract_creation(
     Handles the creation of a new contract.
     """
     logger.info(f"Handling contract creation for {payload.contract_number}")
-    result: Contract = await create_contract(db, payload)
-    result_contract: ContractResponse = ContractResponse.model_validate(result)
-    logger.info(f"Successfully added a new contract with number {result_contract.contract_number}")
-    return result_contract
+    try:
+        result: Contract = await create_contract(db, payload)
+        result_contract: ContractResponse = ContractResponse.model_validate(result)
+        logger.info(f"Successfully added a new contract with number {result_contract.contract_number}")
+        return result_contract
+    except IntegrityError:
+        logger.warning(f"Duplicate contract number detected: {payload.contract_number}")
+        raise HTTPException(status_code=409, detail=f"Contract {payload.contract_number} already exists")
+    except SQLAlchemyError:
+        # Bubble up as 500 by default
+        raise
 
 
 async def handle_contract_deletion(db: AsyncSession, contract_number: str) -> Dict[str, str]:
