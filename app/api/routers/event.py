@@ -4,12 +4,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.services.event_services import process_event
 from app.db.session import get_async_session
 from app.dto.event import EventPayload, EventResponse
+from app.api.schemas.error import ErrorResponse
 
 
 router = APIRouter(tags=["Events"])
 
 
-@router.post("/event", response_model=EventResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/event",
+    response_model=EventResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        422: {"description": "Validation Error"},
+    },
+)
 async def post_event(
     payload: EventPayload, db: AsyncSession = Depends(get_async_session)
 ) -> EventResponse:

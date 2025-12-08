@@ -12,9 +12,15 @@ from app.db.session import get_async_session
 from app.dto.contract import ContractPayload, ContractResponse
 from app.dto.timeline import TimelineResponse
 
+from app.api.schemas.error import ErrorResponse
+
 router = APIRouter(
     prefix="/contract",
-    responses={404: {"description": "Not found"}},
+    responses={
+        404: {"description": "Not Found", "model": ErrorResponse},
+        409: {"description": "Conflict", "model": ErrorResponse},
+        422: {"description": "Validation Error"},
+    },
     tags=["Contract"],
 )
 
@@ -28,7 +34,12 @@ async def create_contract_endpoint(
 ) -> ContractResponse:
     return await handle_contract_creation(db, payload)
 
-@router.get("/{contract_number}", response_model=ContractResponse, status_code=status.HTTP_200_OK)
+@router.get(
+    "/{contract_number}",
+    response_model=ContractResponse,
+    status_code=status.HTTP_200_OK,
+    responses={404: {"model": ErrorResponse}},
+)
 async def get_contract_endpoint(
     contract_number: str,
     db: AsyncSession = Depends(get_async_session),
@@ -36,7 +47,11 @@ async def get_contract_endpoint(
     return await handle_contract_retrieval(db, contract_number)
 
 
-@router.delete("/{contract_number}", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/{contract_number}",
+    status_code=status.HTTP_200_OK,
+    responses={404: {"model": ErrorResponse}},
+)
 async def delete_contract_endpoint(
     contract_number: str,
     db: AsyncSession = Depends(get_async_session),
@@ -48,6 +63,7 @@ async def delete_contract_endpoint(
     "/{contract_number}/contract_timeline",
     response_model=TimelineResponse,
     status_code=status.HTTP_200_OK,
+    responses={404: {"model": ErrorResponse}},
 )
 async def get_contract_timeline_endpoint(
     contract_number: str,

@@ -1,13 +1,13 @@
 from datetime import datetime
 from typing import Iterable, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, field_validator, Field
 from app.domain.enums import ComponentType
 
 
 class ContractPayload(BaseModel):
-    contract_number: str
-    components: list[str]
+    contract_number: str = Field(..., examples=["1234"])
+    components: list[str] = Field(default_factory=list, examples=[["energy_supply", "battery_optimization"]])
 
     @field_validator("components")
     @classmethod

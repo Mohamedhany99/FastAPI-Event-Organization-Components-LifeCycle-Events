@@ -9,6 +9,8 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str = "EOTechChallenge"
     VERSION: str = "0.1.0"
+    ENABLE_DBLAYER_LOG_SQL: bool = False
+    ENABLE_EVENT_AUDIT: bool = False
 
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
 

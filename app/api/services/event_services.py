@@ -7,10 +7,13 @@ from fastapi import HTTPException
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.enums import ComponentType, EventAction, resolve_component_action
+from app.domain.enums import ComponentType, EventAction, EventType, resolve_component_action
 from app.db.crud.component_state import get_component_state, upsert_component_state
 from app.db.crud.contract import get_contract
 from app.dto.event import EventPayload, EventResponse
+from app.infra.logging import log_context
+from app.config import settings
+from app.db.crud.event import record_event
 
 
 async def process_event(db: AsyncSession, payload: EventPayload) -> EventResponse:
@@ -18,30 +21,77 @@ async def process_event(db: AsyncSession, payload: EventPayload) -> EventRespons
     Process a single event according to domain rules and persist the component state.
     Returns an accepted/rejected response; does NOT raise for domain rejections.
     """
-    logger.info(f"Processing event: {payload.type} for contract {payload.contract_number}")
+    comp, act = _parse_event(payload)
+    log = log_context(
+        contract_number=payload.contract_number,
+        component=str(comp.value),
+        action=str(act.value),
+        created_at=str(payload.created_at),
+    )
+    log.info(f"Processing event: {payload.event_type} for contract {payload.contract_number}")
 
     contract = await get_contract(db, payload.contract_number)
     if contract is None:
-        return EventResponse(status="rejected", message=f"Contract {payload.contract_number} not found.")
+        resp = EventResponse(status="rejected", message=f"Contract {payload.contract_number} not found.")
+        if getattr(settings, "ENABLE_EVENT_AUDIT", False):
+            comp, act = _parse_event(payload)
+            await record_event(
+                db,
+                contract_id=None,
+                raw_type=payload.event_type,
+                component_type=comp,
+                action=act,
+                event_date=payload.event_date,
+                event_created_at=payload.created_at,
+                status=resp.status,
+                message=resp.message,
+            )
+        return resp
 
     component_type, action = _parse_event(payload)
     if component_type.value not in contract.components:
-        return EventResponse(
+        resp = EventResponse(
             status="rejected",
             message=f"Component {component_type.value} is not configured for contract {payload.contract_number}.",
         )
+        if getattr(settings, "ENABLE_EVENT_AUDIT", False):
+            await record_event(
+                db,
+                contract_id=contract.id,
+                raw_type=payload.event_type,
+                component_type=component_type,
+                action=action,
+                event_date=payload.event_date,
+                event_created_at=payload.created_at,
+                status=resp.status,
+                message=resp.message,
+            )
+        return resp
 
     state = await get_component_state(db, contract.id, component_type)
 
     # Apply rules
     if action == EventAction.start:
-        return await _handle_start_event(db, contract.id, component_type, state, payload.date, payload.created_at)
+        result = await _handle_start_event(db, contract.id, component_type, state, payload.event_date, payload.created_at)
     else:
-        return await _handle_end_event(db, contract.id, component_type, state, payload.date, payload.created_at)
+        result = await _handle_end_event(db, contract.id, component_type, state, payload.event_date, payload.created_at)
+    if getattr(settings, "ENABLE_EVENT_AUDIT", False):
+        await record_event(
+            db,
+            contract_id=contract.id,
+            raw_type=payload.event_type,
+            component_type=component_type,
+            action=action,
+            event_date=payload.event_date,
+            event_created_at=payload.created_at,
+            status=result.status,
+            message=result.message,
+        )
+    return result
 
 
 def _parse_event(payload: EventPayload) -> Tuple[ComponentType, EventAction]:
-    component_type, action = resolve_component_action(payload.type)
+    component_type, action = resolve_component_action(payload.event_type)
     return component_type, action
 
 
