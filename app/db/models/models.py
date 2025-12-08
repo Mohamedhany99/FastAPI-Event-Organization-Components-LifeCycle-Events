@@ -39,7 +39,7 @@ class ComponentState(Base):
         ForeignKey("contract.id"), nullable=False, index=True
     )
     component_type: Mapped[ComponentType] = mapped_column(
-        SAEnum(ComponentType, name="component_type"), nullable=False
+        SAEnum(ComponentType, name="state_component_type"), nullable=False
     )
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     start_event_created_at: Mapped[datetime | None] = mapped_column(
@@ -66,7 +66,7 @@ class Event(Base):
         ForeignKey("contract.id"), nullable=True, index=True
     )
     raw_type: Mapped[EventType] = mapped_column(SAEnum(EventType, name="event_type"), nullable=False)
-    component_type: Mapped[ComponentType | None] = mapped_column(SAEnum(ComponentType, name="component_type"), nullable=True)
+    component_type: Mapped[ComponentType | None] = mapped_column(SAEnum(ComponentType, name="event_component_type"), nullable=True)
     action: Mapped[EventAction | None] = mapped_column(SAEnum(EventAction, name="event_action"), nullable=True)
     event_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     event_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
