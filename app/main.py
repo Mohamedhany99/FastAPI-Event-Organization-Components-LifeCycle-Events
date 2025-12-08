@@ -2,7 +2,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routers import contract
+from app.api.routers import contract, event
+from app.db.models import models as _models  # ensure models are imported so metadata is populated
 from app.db.session import async_engine, Base
 
 
@@ -19,6 +20,7 @@ app = FastAPI(title="eo_tech_challenge", version="0.1.0", lifespan=lifespan)
 
 # All api routers
 app.include_router(contract.router)
+app.include_router(event.router)
 
 @app.get("/")
 async def root():

@@ -7,8 +7,10 @@ from app.api.services.contract_services import (
     handle_contract_deletion,
     handle_contract_retrieval,
 )
+from app.api.services.timeline_services import get_contract_timeline
 from app.db.session import get_async_session
 from app.dto.contract import ContractPayload, ContractResponse
+from app.dto.timeline import TimelineResponse
 
 router = APIRouter(
     prefix="/contract",
@@ -18,14 +20,13 @@ router = APIRouter(
 
 
 @router.post(
-    "/", response_model=ContractResponse, status_code=status.HTTP_201_CREATED
+    "", response_model=ContractResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_contract_endpoint(
     payload: ContractPayload,
     db: AsyncSession = Depends(get_async_session),
 ) -> ContractResponse:
     return await handle_contract_creation(db, payload)
-
 
 @router.get("/{contract_number}", response_model=ContractResponse, status_code=status.HTTP_200_OK)
 async def get_contract_endpoint(
@@ -41,3 +42,15 @@ async def delete_contract_endpoint(
     db: AsyncSession = Depends(get_async_session),
 ) -> Dict[str, str]:
     return await handle_contract_deletion(db, contract_number)
+
+
+@router.get(
+    "/{contract_number}/contract_timeline",
+    response_model=TimelineResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_contract_timeline_endpoint(
+    contract_number: str,
+    db: AsyncSession = Depends(get_async_session),
+) -> TimelineResponse:
+    return await get_contract_timeline(db, contract_number)

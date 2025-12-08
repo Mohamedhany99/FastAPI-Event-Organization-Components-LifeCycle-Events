@@ -43,7 +43,7 @@ No runtime behavior changes to existing endpoints were made in P0; new endpoints
 - `app/dto/contract.py`
   - Added validator for `components` to ensure each entry is within `ComponentType` (accepts strings or enum values; normalizes to strings).
 
-- `app/db/models/contract.py`
+- `app/db/models/models.py`
   - Confirmed uniqueness on `contract_number` via `unique=True` and kept it indexed.
 
 ---

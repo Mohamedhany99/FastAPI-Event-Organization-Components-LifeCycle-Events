@@ -62,3 +62,11 @@ async def upsert_component_state(
         raise
 
 
+async def list_component_states(
+    db: AsyncSession, contract_id
+) -> list[ComponentState]:
+    result = await db.scalars(
+        select(ComponentState).where(ComponentState.contract_id == contract_id)
+    )
+    return list(result)
+
